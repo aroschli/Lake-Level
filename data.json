@@ -1,10 +1,10 @@
 {
   "watts_bar_lake": {
-    "elevation_ft": null,
-    "last_updated": null
+    "elevation_ft": 470.0,
+    "last_updated": "2026-08-05T14:54:30Z"
   },
   "fort_loudoun_lake": {
-    "elevation_ft": null,
-    "last_updated": null
+    "elevation_ft": 470.0,
+    "last_updated": "2026-08-05T14:54:30Z"
   }
 }
