@@ -41,9 +41,9 @@ jobs:
               response = requests.get(url, timeout=15)
               response.raise_for_status()
               soup = BeautifulSoup(response.text, "html.parser")
-              # Search all text for a pattern like ###.# (3-4 digit number with one decimal)
+              # Look for an elevation value immediately before "Feet MSL"
               text = soup.get_text(" ")
-              match = re.search(r'\b(\d{3,4}\.\d)\b', text)
+              match = re.search(r'(\d{3,4}\.\d+)\s*Feet\s*MSL', text, re.IGNORECASE)
               if match:
                   return float(match.group(1))
               raise ValueError(f"Could not find elevation value on {url}")
