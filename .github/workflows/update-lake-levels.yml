@@ -31,36 +31,89 @@ jobs:
           import requests
           from bs4 import BeautifulSoup
           from datetime import datetime, timezone
+          from requests.adapters import HTTPAdapter
+          from urllib3.util.retry import Retry
 
-          SOURCES = {
-              "watts_bar_lake": "https://www.wattsbar.info/Level/",
-              "fort_loudoun_lake": "https://www.fortloudoun.info/Level/",
+          SOURCE_CANDIDATES = {
+              "watts_bar_lake": [
+                  "https://www.wattsbar.info/Level/",
+                  "https://watts.bar/",
+                  "https://lakeinsights.com/lakes/wattsbar/water-levels",
+              ],
+              "fort_loudoun_lake": [
+                  "https://www.fortloudoun.info/Level/",
+              ],
           }
 
-          def scrape_level(url):
-              response = requests.get(url, timeout=15)
+          SANE_RANGES = {
+              "watts_bar_lake": (600.0, 900.0),
+              "fort_loudoun_lake": (700.0, 900.0),
+          }
+
+          LEVEL_PATTERNS = [
+              r'(\d{3,4}\.\d+)\s*Feet\s*MSL',
+              r'water\s*level[^0-9]{0,40}(\d{3,4}\.\d+)',
+              r'elevation[^0-9]{0,40}(\d{3,4}\.\d+)',
+          ]
+
+          def build_session():
+              retry = Retry(
+                  total=3,
+                  connect=3,
+                  read=3,
+                  backoff_factor=1,
+                  status_forcelist=[429, 500, 502, 503, 504],
+                  allowed_methods=["GET"],
+              )
+              session = requests.Session()
+              adapter = HTTPAdapter(max_retries=retry)
+              session.mount("http://", adapter)
+              session.mount("https://", adapter)
+              return session
+
+          def extract_level(text, lake_key):
+              for pattern in LEVEL_PATTERNS:
+                  match = re.search(pattern, text, re.IGNORECASE)
+                  if match:
+                      level = float(match.group(1))
+                      min_level, max_level = SANE_RANGES[lake_key]
+                      if min_level <= level <= max_level:
+                          return level
+              raise ValueError(f"Could not find a sane elevation value for {lake_key}")
+
+          def scrape_level(session, lake_key, url):
+              response = session.get(url, timeout=20)
               response.raise_for_status()
               soup = BeautifulSoup(response.text, "html.parser")
-              # Look for an elevation value immediately before "Feet MSL"
               text = soup.get_text(" ")
-              match = re.search(r'(\d{3,4}\.\d+)\s*Feet\s*MSL', text, re.IGNORECASE)
-              if match:
-                  return float(match.group(1))
-              raise ValueError(f"Could not find elevation value on {url}")
+              return extract_level(text, lake_key)
+
+          def scrape_with_fallback(session, lake_key, urls):
+              errors = []
+              for url in urls:
+                  try:
+                      level = scrape_level(session, lake_key, url)
+                      return level, url
+                  except Exception as e:
+                      errors.append(f"{url}: {e}")
+              raise RuntimeError(" | ".join(errors))
 
           with open("data.json", "r") as f:
               data = json.load(f)
 
+          session = build_session()
           timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-          for key, url in SOURCES.items():
+          for key, urls in SOURCE_CANDIDATES.items():
               try:
-                  level = scrape_level(url)
+                  level, source_url = scrape_with_fallback(session, key, urls)
                   data[key]["elevation_ft"] = level
                   data[key]["last_updated"] = timestamp
-                  print(f"{key}: {level} ft")
+                  data[key]["source_used"] = source_url
+                  data[key]["source_timestamp"] = timestamp
+                  print(f"{key}: {level} ft (source: {source_url})")
               except Exception as e:
-                  print(f"WARNING: Failed to scrape {key} from {url}: {e}")
+                  print(f"WARNING: Failed to scrape {key} from all sources: {e}")
 
           with open("data.json", "w") as f:
               json.dump(data, f, indent=2)
