@@ -11,36 +11,37 @@
 const char* WIFI_SSID = "YOUR_WIFI_SSID";
 const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
-// Replace with your raw JSON URL when hosted.
-// Example (GitHub raw):
-// https://raw.githubusercontent.com/<owner>/<repo>/<branch>/data.json
 const char* DATA_URL = "https://raw.githubusercontent.com/aroschli/Lake-Level/main/data.json";
 
-// Poll interval (milliseconds)
 const unsigned long POLL_INTERVAL_MS = 5UL * 60UL * 1000UL; // 5 minutes
-
-// HT16K33 default I2C address for Adafruit 7-segment backpack
 const uint8_t DISPLAY_I2C_ADDR = 0x70;
 
 Adafruit_7segment display = Adafruit_7segment();
 unsigned long lastPoll = 0;
+float lastElevation = 0.0f;
+
+void startupAnimation() {
+  for (int i = 0; i < 6; i++) {
+    display.clear();
+    display.writeDigitNum(i % 4, i);
+    display.writeDisplay();
+    delay(120);
+  }
+  display.clear();
+  display.writeDisplay();
+}
 
 void showStatusText(const char* text) {
-  // 4-character helper for quick status display (e.g., "WiFi", "Err ")
   display.clear();
-
   for (uint8_t i = 0; i < 4 && text[i] != '\0'; i++) {
     char c = text[i];
-    if (c >= 'a' && c <= 'z') c -= 32; // to upper
+    if (c >= 'a' && c <= 'z') c -= 32;
     display.writeDigitAscii(i, c);
   }
-
   display.writeDisplay();
 }
 
 void showElevation(float elevationFt) {
-  // Display XX.X format when possible on 4 digits.
-  // Example: 740.8 -> "7408" with decimal after 3rd digit.
   int scaled = (int)round(elevationFt * 10.0f);
 
   if (scaled < 0 || scaled > 9999) {
@@ -56,13 +57,41 @@ void showElevation(float elevationFt) {
   display.clear();
   display.writeDigitNum(0, thousands);
   display.writeDigitNum(1, hundreds);
-  display.writeDigitNum(3, tens, true);  // decimal point after tens place -> XXX.X
+  display.writeDigitNum(3, tens, true);  // decimal point
   display.writeDigitNum(4, ones);
   display.writeDisplay();
 }
 
+bool fetchWattsBarElevation(float& elevationOut) {
+  if (WiFi.status() != WL_CONNECTED) return false;
+
+  for (int attempt = 0; attempt < 3; attempt++) {
+    HTTPClient http;
+    http.begin(DATA_URL);
+    int statusCode = http.GET();
+
+    if (statusCode == HTTP_CODE_OK) {
+      String payload = http.getString();
+      http.end();
+
+      StaticJsonDocument<1024> doc;
+      DeserializationError err = deserializeJson(doc, payload);
+      if (!err && doc["watts_bar_lake"].containsKey("elevation_ft")) {
+        elevationOut = doc["watts_bar_lake"]["elevation_ft"].as<float>();
+        return true;
+      }
+    }
+
+    http.end();
+    delay(500);  // retry delay
+  }
+
+  return false;
+}
+
 bool connectWiFi() {
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);   // more stable WiFi
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   showStatusText("WiFi");
@@ -77,44 +106,15 @@ bool connectWiFi() {
   return WiFi.status() == WL_CONNECTED;
 }
 
-bool fetchWattsBarElevation(float& elevationOut) {
-  if (WiFi.status() != WL_CONNECTED) {
-    return false;
-  }
-
-  HTTPClient http;
-  http.begin(DATA_URL);
-  int statusCode = http.GET();
-
-  if (statusCode != HTTP_CODE_OK) {
-    http.end();
-    return false;
-  }
-
-  String payload = http.getString();
-  http.end();
-
-  // Keep doc size modest for expected JSON structure
-  StaticJsonDocument<1024> doc;
-  DeserializationError err = deserializeJson(doc, payload);
-  if (err) {
-    return false;
-  }
-
-  if (!doc["watts_bar_lake"].containsKey("elevation_ft")) {
-    return false;
-  }
-
-  elevationOut = doc["watts_bar_lake"]["elevation_ft"].as<float>();
-  return true;
-}
-
 void setup() {
-  Wire.begin();
+  Wire.begin(21, 22);              // ESP32 I2C pins
   display.begin(DISPLAY_I2C_ADDR);
-  display.setBrightness(8); // 0-15
+  delay(20);
+  display.setBrightness(8);
 
-  showStatusText("Init");
+  startupAnimation();
+
+  //showStatusText("Init");
 
   if (!connectWiFi()) {
     showStatusText("nEt ");
@@ -123,6 +123,7 @@ void setup() {
 
   float elevation = 0.0f;
   if (fetchWattsBarElevation(elevation)) {
+    lastElevation = elevation;
     showElevation(elevation);
     lastPoll = millis();
   } else {
@@ -141,12 +142,23 @@ void loop() {
 
   unsigned long now = millis();
   if (now - lastPoll >= POLL_INTERVAL_MS || lastPoll == 0) {
+
     float elevation = 0.0f;
     if (fetchWattsBarElevation(elevation)) {
+      lastElevation = elevation;
       showElevation(elevation);
+
+      // Heartbeat blink
+      delay(200);
+      int scaled = (int)round(elevation * 10.0f);
+      int tens = (scaled / 10) % 10;
+      display.writeDigitNum(3, tens, false);
+      display.writeDisplay();
+
       lastPoll = now;
     } else {
-      showStatusText("Err ");
+      // Fallback to last known elevation
+      showElevation(lastElevation);
       delay(2000);
     }
   }
