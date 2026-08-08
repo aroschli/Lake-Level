@@ -15,6 +15,12 @@ Arduino sketch for a standard ESP32 + Adafruit 0.56" 4-digit 7-segment backpack 
 - `GPIO 21 (SDA)` -> `D`
 - `GPIO 22 (SCL)` -> `C`
 
+When using a Qwiic to female jumper, connect the following jumpers
+- Black -> GND
+- Red -> 3v3 (VCC)
+- Blue -> D21 (GPIO21/SDA)
+- Yellow -> D22 (GPIO22/SCL)
+
 ## Arduino IDE setup
 
 Install these libraries:
