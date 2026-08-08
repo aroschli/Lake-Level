@@ -60,3 +60,15 @@ Lake-Level/
 Each sketch connects an ESP32 to an Adafruit 4-digit 7-segment backpack (HT16K33, product 881) via I2C and displays the current lake elevation in `XXX.X` feet format. The sketches fetch `data.json` directly from this repository every 5 minutes.
 
 See the individual `README.md` files in each sketch folder for hardware wiring and Arduino IDE setup instructions.
+
+## Notes about Arduino Setup for ESP32
+
+Windows likely requires the CP210x drivers to recognize the ESP32 module when connected via USB. Drivers are included as a zip folder in the repository. Simple connect the device, then manually update drivers from device manager and point to the folder where the zip file is stored.
+
+Arduino needs the following libraries downloaded
+* esp32 from Espressif Systems
+* Adafruit LED Backpack
+* Adafruit GFX Library
+* ArduinoJson
+
+Once drivers and libraries are installed, Arduino IDE can be connected to the ESP32 board via whichever COM port is being used. In Arduino, set the board type as ESP32 Dev Module
