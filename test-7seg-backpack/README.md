@@ -11,8 +11,8 @@ The sketch in `test-7seg-backpack.ino`:
 
 ## Hardware
 
-- ESP32 board
-- Adafruit LED Backpack 7-segment display (HT16K33-based)
+- ESP32 board - using ESP-WROOM-32
+- Adafruit LED Backpack 7-segment display (HT16K33-based) - product ID 881
 - Jumper wires
 
 ## Wiring
