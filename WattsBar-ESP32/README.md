@@ -22,6 +22,7 @@ Install these libraries:
 - Adafruit LED Backpack
 - Adafruit GFX Library
 - ArduinoJson
+- esp32 library from Espressif Systems
 
 (ESP32 core includes `WiFi.h` and `HTTPClient.h`.)
 
