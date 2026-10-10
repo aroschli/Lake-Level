@@ -1,14 +1,14 @@
 {
   "watts_bar_lake": {
-    "elevation_ft": 740.75,
-    "last_updated": "2026-10-10T19:55:47Z",
+    "elevation_ft": 740.53,
+    "last_updated": "2026-10-10T23:24:11Z",
     "source_used": "https://www.wattsbar.info/Level/",
-    "source_timestamp": "2026-10-10T19:55:47Z"
+    "source_timestamp": "2026-10-10T23:24:11Z"
   },
   "fort_loudoun_lake": {
-    "elevation_ft": 812.92,
-    "last_updated": "2026-10-10T19:55:47Z",
+    "elevation_ft": 812.82,
+    "last_updated": "2026-10-10T23:24:11Z",
     "source_used": "https://www.fortloudoun.info/Level/",
-    "source_timestamp": "2026-10-10T19:55:47Z"
+    "source_timestamp": "2026-10-10T23:24:11Z"
   }
 }
